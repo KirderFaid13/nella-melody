@@ -1,0 +1,20 @@
+{
+  "name": "nella-melody",
+  "version": "1.0.0",
+  "description": "Nella Melody: mascota virtual 3D de My Melody, empaquetada para Android con Capacitor",
+  "scripts": {
+    "preparar": "python preparar_www.py",
+    "copiar": "npx cap copy android"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/android": "7.6.10",
+    "@capacitor/cli": "7.6.10",
+    "@capacitor/core": "7.6.10",
+    "three": "0.160.0"
+  },
+  "private": true
+}

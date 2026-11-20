@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Nella Melody · Fase 0</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #f6cfdc; overflow: hidden; touch-action: none;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    font-family: "Segoe UI", system-ui, sans-serif; }
+  /* Encuadre fijo 16:10, igual al de la tablet. */
+  #marco { position: absolute; inset: 0; margin: auto; width: min(100vw, 160vh); height: min(100vh, 62.5vw);
+    overflow: hidden; background: #ffeef4; }
+  #marco svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #pista { position: absolute; left: 0; right: 0; top: 5%; text-align: center; color: #8a5a68;
+    font-size: clamp(14px, 2.2vw, 30px); pointer-events: none; transition: opacity .6s; }
+  .boton { position: absolute; bottom: 3%; border: 0; border-radius: 999px; padding: .6em 1.1em;
+    font: inherit; font-size: clamp(12px, 1.4vw, 20px); background: #fff; color: #8a5a68;
+    box-shadow: 0 3px 0 #e9b7c8; }
+  #btn-diag { left: 2%; }
+  #btn-completa { right: 2%; }
+  #hud { position: absolute; left: 2%; top: 3%; background: rgba(255, 255, 255, .94); border-radius: 14px;
+    padding: 12px 14px; font: 13px/1.5 Consolas, "Courier New", monospace; color: #4a3338;
+    white-space: pre-wrap; display: none; max-width: 92%; }
+  #hud button { margin-top: 8px; font: inherit; padding: 4px 10px; }
+</style>
+</head>
+<body>
+<div id="marco">
+  <svg id="fondo" viewBox="0 0 2560 1600" aria-hidden="true">
+    <defs>
+      <pattern id="lunares" width="160" height="160" patternUnits="userSpaceOnUse">
+        <circle cx="40" cy="40" r="12" fill="#ffdce8"/>
+        <circle cx="120" cy="120" r="12" fill="#ffdce8"/>
+      </pattern>
+    </defs>
+    <rect width="2560" height="1190" fill="#ffeef4"/>
+    <rect width="2560" height="1190" fill="url(#lunares)"/>
+    <rect y="1190" width="2560" height="410" fill="#f7dcc6"/>
+    <path d="M0,1330 H2560 M0,1470 H2560" stroke="#eccdb3" stroke-width="6" fill="none"/>
+    <rect y="1156" width="2560" height="40" fill="#fffdfa" stroke="#d9b3bf" stroke-width="6"/>
+
+    <rect x="250" y="210" width="560" height="540" rx="44" fill="#cdeeff" stroke="#d9b3bf" stroke-width="16"/>
+    <ellipse cx="420" cy="400" rx="90" ry="38" fill="#fff"/>
+    <ellipse cx="490" cy="372" rx="70" ry="42" fill="#fff"/>
+    <ellipse cx="650" cy="560" rx="80" ry="32" fill="#fff"/>
+    <path d="M530,210 V750 M250,480 H810" stroke="#fffdfa" stroke-width="22" fill="none"/>
+    <rect x="250" y="210" width="560" height="540" rx="44" fill="none" stroke="#d9b3bf" stroke-width="16"/>
+
+    <rect x="1780" y="560" width="520" height="30" rx="12" fill="#fffdfa" stroke="#d9b3bf" stroke-width="6"/>
+    <rect x="1830" y="420" width="56" height="140" rx="8" fill="#ffc2d6" stroke="#d9b3bf" stroke-width="6"/>
+    <rect x="1892" y="390" width="50" height="170" rx="8" fill="#c9e6ff" stroke="#d9b3bf" stroke-width="6"/>
+    <rect x="1948" y="440" width="62" height="120" rx="8" fill="#fff2b8" stroke="#d9b3bf" stroke-width="6"/>
+    <rect x="2110" y="470" width="130" height="90" rx="14" fill="#f9a8c4" stroke="#d9b3bf" stroke-width="6"/>
+    <rect x="2100" y="452" width="150" height="26" rx="10" fill="#fffdfa" stroke="#d9b3bf" stroke-width="6"/>
+
+    <ellipse cx="1280" cy="1420" rx="600" ry="120" fill="#ffd0e0" stroke="#f3a9c3" stroke-width="10"/>
+    <ellipse cx="1280" cy="1420" rx="500" ry="90" fill="none" stroke="#fffdfa" stroke-width="8" stroke-dasharray="4 30" stroke-linecap="round"/>
+  </svg>
+
+  <svg id="actores" viewBox="0 0 2560 1600">
+    <ellipse id="sombra" cx="1280" cy="1402" rx="230" ry="30" fill="#7a4a58" opacity=".16"/>
+    <g id="personaje" transform="translate(920 356) scale(1.2)"></g>
+    <g id="corazones"></g>
+  </svg>
+
+  <div id="pista">Tócala o acaríciala para tocar la escala</div>
+  <button class="boton" id="btn-diag" type="button">Diagnóstico</button>
+  <button class="boton" id="btn-completa" type="button">Pantalla completa</button>
+  <div id="hud"><span id="hud-texto"></span>
+<button id="btn-copiar" type="button">Copiar diagnóstico</button></div>
+</div>
+<script src="melody.js"></script>
+<script src="escena.js"></script>
+</body>
+</html>

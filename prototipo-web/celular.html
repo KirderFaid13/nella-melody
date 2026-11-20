@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nella Melody · Abrir en el celular</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: "Segoe UI", system-ui, sans-serif; background: #ffeef4; color: #4a3338; }
+  main { text-align: center; padding: 24px; max-width: 520px; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  p { font-size: 15px; line-height: 1.5; margin: 8px 0; }
+  #qr { display: inline-block; background: #fff; padding: 18px; border-radius: 18px; margin: 14px 0;
+    box-shadow: 0 4px 0 #f3c4d6; }
+  code { background: #fbdbe7; padding: 2px 8px; border-radius: 6px; font-size: 16px; }
+  #aviso { color: #b3261e; font-weight: 600; display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Abrir Nella Melody en el celular</h1>
+  <p>Con el celular en el mismo Wi-Fi que esta laptop, apunta la cámara a este código.</p>
+  <div id="qr"></div>
+  <p>O escribe esto en el navegador del celular:</p>
+  <p><code id="direccion"></code></p>
+  <p id="aviso">Esta página se abrió como "localhost", así que el código no sirve para el celular.
+    Ábrela con la dirección de red de la laptop.</p>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+  /* La dirección sale de cómo se abrió esta página: si la laptop cambia de red,
+     basta con abrirla de nuevo con la dirección nueva. */
+  var destino = location.protocol + '//' + location.host + '/3d/';
+  document.getElementById('direccion').textContent = destino;
+  if (/^(localhost|127\.)/.test(location.hostname)) document.getElementById('aviso').style.display = 'block';
+  new QRCode(document.getElementById('qr'), { text: destino, width: 260, height: 260, correctLevel: QRCode.CorrectLevel.M });
+</script>
+</body>
+</html>

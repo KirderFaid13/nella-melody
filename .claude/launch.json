@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "prototipo-web",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8123", "--bind", "127.0.0.1", "--directory", "prototipo-web"],
+      "port": 8123
+    }
+  ]
+}

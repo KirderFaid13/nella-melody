@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Nella Melody · Fase 0 · 3D</title>
+<!-- Todo va dentro del juego (letra y three.js): funciona sin internet, también en el APK. -->
+<link href="vendor/fredoka/fredoka.css" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; background: #f3c4d6; overflow: hidden; touch-action: none;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    font-family: "Fredoka", "Segoe UI", system-ui, sans-serif; }
+  /* Encuadre fijo 16:10, igual al de la tablet. Las medidas en cqw/cqh escalan con él. */
+  #marco { position: absolute; inset: 0; margin: auto; width: min(100vw, 160vh); height: min(100vh, 62.5vw);
+    overflow: hidden; background: #ffeaf2; container-type: size; }
+  #lienzo { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* Oscurece apenas los bordes para llevar la mirada al centro. */
+  #vineta { position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 48%, rgba(255, 255, 255, 0) 55%, rgba(214, 110, 158, .24) 100%); }
+
+  /* ---------- Interfaz de la casa (se oculta en el título) ---------- */
+  .ui-casa { transition: opacity .5s ease; }
+  #marco:not(.en-casa) .ui-casa { opacity: 0 !important; pointer-events: none !important; }
+  /* Todo lo de arriba se mide con el marco (cqw), no con la ventana: así en una PC ancha
+     el logo no crece de más y no choca con la barra de necesidades. */
+  #logo { position: absolute; left: 2.5%; top: 3.4%; font-weight: 700; letter-spacing: .02em; color: #fff;
+    font-size: 2.6cqw; white-space: nowrap; pointer-events: none;
+    text-shadow: 0 3px 0 #e86fa3, 0 0 2px #c94f86, 2px 0 0 #e86fa3, -2px 0 0 #e86fa3, 0 -2px 0 #e86fa3; }
+  #pista { position: absolute; left: 0; right: 0; bottom: 16%; text-align: center; color: #9a5f73;
+    font-size: max(11px, 1.7cqw); pointer-events: none; transition: opacity .6s; }
+  .boton { position: absolute; bottom: 3%; border: 0; border-radius: 999px; padding: .6em 1.1em;
+    font: inherit; font-size: max(11px, 1.45cqw); background: #fff; color: #9a5f73;
+    box-shadow: 0 3px 0 #e9b7c8; }
+  .esquina { position: absolute; top: 3%; right: 2%; display: flex; gap: 1cqw; z-index: 3; }
+  .esquina .boton { position: static; }
+
+  /* Barra de ambientes, abajo al centro, y flechas a los costados. */
+  #ambientes { position: absolute; left: 50%; bottom: 2.4%; transform: translateX(-50%); z-index: 3;
+    display: flex; gap: .8cqw; padding: .7cqw 1cqw; background: rgba(255, 255, 255, .94);
+    border: .35cqw solid #f7b6cf; border-radius: 3cqw; box-shadow: 0 .6cqw 0 #f3c4d6; }
+  .amb { display: flex; flex-direction: column; align-items: center; gap: .15cqw; width: 8.6cqw; padding: .5cqw 0 .35cqw;
+    border: 0; border-radius: 2cqw; background: transparent; color: #d0628f; font: inherit; font-size: 1.35cqw;
+    font-weight: 600; cursor: pointer; transition: transform .1s, background-color .25s, color .25s; }
+  .amb svg { width: 3.6cqw; height: 3.6cqw; }
+  .amb.activo { background: #ff86b6; color: #fff; box-shadow: 0 .35cqw 0 #e2588f; }
+  .amb:active { transform: scale(.93); }
+  .flecha { position: absolute; top: 50%; z-index: 3; width: 6cqw; height: 6cqw; margin-top: -3cqw;
+    display: flex; align-items: center; justify-content: center; padding: 0 0 .4cqw;
+    border: .35cqw solid #f7b6cf; border-radius: 50%; background: rgba(255, 255, 255, .92); color: #e2588f;
+    font: inherit; font-size: 4cqw; font-weight: 700; line-height: 1; box-shadow: 0 .5cqw 0 #f3c4d6; cursor: pointer;
+    transition: transform .08s, opacity .25s; }
+  .flecha:active { transform: translateY(.3cqw) scale(.95); }
+  .flecha:disabled { opacity: .3; cursor: default; }
+  #amb-anterior { left: 1.6cqw; }
+  #amb-siguiente { right: 1.6cqw; }
+  /* Barras de necesidades, arriba al centro. */
+  #necesidades { position: absolute; top: 2.6%; left: 50%; transform: translateX(-50%); z-index: 3;
+    display: flex; gap: 1.1cqw; padding: .7cqw 1.2cqw; background: rgba(255, 255, 255, .92);
+    border: .3cqw solid #f7b6cf; border-radius: 3cqw; box-shadow: 0 .45cqw 0 #f3c4d6; white-space: nowrap; }
+  .medidor { display: flex; align-items: center; gap: .6cqw; color: #e2588f; --nivel: 100%; }
+  .medidor svg { width: 2.4cqw; height: 2.4cqw; }
+  .barrita { width: 5.6cqw; height: 1.2cqw; border-radius: 1cqw; background: #fbdbe7; overflow: hidden; }
+  .barrita i { display: block; height: 100%; width: var(--nivel); background: #ff86b6; border-radius: 1cqw;
+    transition: width .4s ease, background-color .4s; }
+  .medidor.bajo .barrita i { background: #ff6b6b; }
+  .medidor.bajo svg { animation: latido-bajo 1s ease-in-out infinite; }
+  .medidor.pulso .barrita { animation: pulso-barra .5s ease 3; }
+  @keyframes pulso-barra { 50% { box-shadow: 0 0 0 .45cqw #ffb3cd; } }
+  @keyframes latido-bajo { 50% { transform: scale(1.2); } }
+
+  /* Bandeja del refri: sube desde abajo y tapa la barra de ambientes. */
+  #ambientes { transition: opacity .3s ease; }
+  #marco.refri-abierto #ambientes { opacity: 0; pointer-events: none; }
+  #bandeja { position: absolute; left: 50%; bottom: 2.4%; z-index: 4; width: 74cqw; box-sizing: border-box;
+    padding: .8cqw 1.4cqw 1cqw; background: rgba(255, 255, 255, .96); border: .35cqw solid #f7b6cf;
+    border-radius: 2.4cqw; box-shadow: 0 .7cqw 0 #f3c4d6;
+    transform: translate(-50%, 150%); transition: transform .35s cubic-bezier(.3, 1.3, .5, 1); }
+  #marco.refri-abierto #bandeja { transform: translate(-50%, 0); }
+  .bandeja-cabeza { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5cqw;
+    font-size: 1.9cqw; font-weight: 700; color: #e2588f; }
+  .bandeja-cerrar { width: 3.4cqw; height: 3.4cqw; padding: 0; border-radius: 50%; border: .3cqw solid #f7b6cf;
+    background: #fff; color: #e2588f; font: inherit; font-size: 1.6cqw; font-weight: 700; cursor: pointer; }
+  .bandeja-cuerpo { display: flex; align-items: center; gap: .8cqw; }
+  .bandeja-lista { flex: 1; display: flex; gap: .9cqw; justify-content: center; min-height: 11cqw; }
+  .bandeja-flecha { flex: none; width: 3.6cqw; height: 3.6cqw; padding: 0 0 .25cqw; border-radius: 50%; border: .3cqw solid #f7b6cf;
+    background: #fff; color: #e2588f; font: inherit; font-size: 2.6cqw; font-weight: 700; line-height: 1; cursor: pointer;
+    box-shadow: 0 .3cqw 0 #f3c4d6; transition: transform .08s, opacity .2s; }
+  .bandeja-flecha:active { transform: translateY(.2cqw); }
+  .bandeja-flecha:disabled { opacity: .3; cursor: default; }
+  .tarjeta-comida[hidden] { display: none; }
+  .tarjeta-comida { position: relative; width: 10cqw; padding: .5cqw .3cqw .4cqw; box-sizing: border-box;
+    display: flex; flex-direction: column; align-items: center; border-radius: 1.5cqw; background: #fff6fa;
+    border: .25cqw solid #fbd3e1; cursor: grab; touch-action: none; transition: transform .1s; }
+  .tarjeta-comida:active { transform: scale(.95); }
+  .tarjeta-comida img { width: 6.5cqw; height: 6.5cqw; pointer-events: none; }
+  .tarjeta-comida .nombre { min-height: 2.6cqw; display: flex; align-items: center; text-align: center;
+    font-size: 1.15cqw; font-weight: 600; line-height: 1.1; color: #8a5a68; }
+  .tarjeta-comida .cuenta { position: absolute; top: .35cqw; right: .4cqw; padding: .1cqw .55cqw; border-radius: 1cqw;
+    background: #ff86b6; color: #fff; font-size: 1.2cqw; font-weight: 700; }
+  .tarjeta-comida.agotada { filter: grayscale(1); opacity: .55; cursor: default; }
+  .tarjeta-comida.agotada .cuenta { background: #b9a3ab; }
+  .bandeja-pista { margin-top: .4cqw; text-align: center; font-size: 1.3cqw; color: #c0708f; }
+  .fantasma { position: absolute; z-index: 12; width: 9cqw; height: 9cqw; transform: translate(-50%, -55%);
+    pointer-events: none; filter: drop-shadow(0 .6cqw .4cqw rgba(120, 50, 80, .25)); }
+  .fantasma.volviendo { transition: left .3s ease, top .3s ease, opacity .3s ease; opacity: 0; }
+
+  /* Kit del baño: sube cuando ella entra a la bañera y tapa la barra de ambientes. */
+  #marco.en-banera #ambientes, #marco.en-banera .flecha { opacity: 0; pointer-events: none; }
+  #kit-bano { position: absolute; left: 50%; bottom: 2.4%; z-index: 4; box-sizing: border-box;
+    display: flex; flex-direction: column; align-items: center; padding: .8cqw 1.6cqw 1cqw;
+    background: rgba(255, 255, 255, .96); border: .35cqw solid #b9dcf2; border-radius: 2.4cqw;
+    box-shadow: 0 .7cqw 0 #cfe6f6; transform: translate(-50%, 150%);
+    transition: transform .35s cubic-bezier(.3, 1.3, .5, 1), opacity .5s ease; }
+  #marco.en-banera #kit-bano { transform: translate(-50%, 0); }
+  .kit-lista { display: flex; gap: 1.2cqw; align-items: flex-end; }
+  .herramienta { display: flex; flex-direction: column; align-items: center; gap: .2cqw; width: 11cqw;
+    padding: .6cqw .3cqw .5cqw; border: .25cqw solid #d6ebf8; border-radius: 1.6cqw; background: #f3faff;
+    color: #3f86b5; font: inherit; font-size: 1.4cqw; font-weight: 700; cursor: pointer; touch-action: none;
+    transition: transform .1s; }
+  .herramienta:active { transform: scale(.94); }
+  .herramienta img, .herramienta svg { width: 6cqw; height: 6cqw; pointer-events: none; }
+  .herramienta.secundaria { width: 8cqw; background: #fff; border-color: #f7b6cf; color: #e2588f; }
+  .herramienta.secundaria svg { width: 4cqw; height: 4cqw; margin-bottom: .6cqw; }
+  .kit-pista { margin-top: .4cqw; font-size: 1.3cqw; color: #5d93b8; }
+  .fantasma.jabon { width: 8cqw; height: 8cqw; }
+
+  /* Regadera del patio: aparece abajo a la izquierda solo en el patio. */
+  #btn-regar { position: absolute; left: 1.6cqw; bottom: 2.4%; z-index: 4; width: 10cqw;
+    background: #fff6fa; border-color: #fbd3e1; color: #e2588f; box-shadow: 0 .5cqw 0 #f3c4d6;
+    opacity: 0; pointer-events: none; transform: translateY(40%);
+    transition: opacity .3s ease, transform .35s cubic-bezier(.3, 1.3, .5, 1); }
+  #marco.en-patio #btn-regar { opacity: 1; pointer-events: auto; transform: none; }
+  #marco.en-patio #btn-regar:active { transform: scale(.94); }
+  .fantasma.regadera { width: 10cqw; height: 10cqw; transform: translate(-50%, -55%); transition: transform .2s ease; }
+  .fantasma.regadera.regando { transform: translate(-50%, -55%) rotate(-32deg); }
+  /* Ramo: aparece junto a Regar cuando las flores están grandes. */
+  #btn-ramo { position: absolute; left: 13cqw; bottom: 2.4%; z-index: 4; width: 10cqw;
+    background: #fff6fa; border-color: #fbd3e1; color: #e2588f; box-shadow: 0 .5cqw 0 #f3c4d6;
+    opacity: 0; pointer-events: none; transform: translateY(40%);
+    transition: opacity .3s ease, transform .35s cubic-bezier(.3, 1.3, .5, 1); }
+  #marco.en-patio.ramo-listo #btn-ramo { opacity: 1; pointer-events: auto; transform: none; animation: llama .55s ease 3; }
+
+  /* El final de la Nota 100. */
+  /* Durante el final se esconde la interfaz de la casa (menos las barras de arriba): la escena es de ella. */
+  #marco.en-final #ambientes, #marco.en-final .flecha, #marco.en-final #btn-encargos, #marco.en-final #btn-regar,
+  #marco.en-final #btn-ramo, #marco.en-final #kit-bano, #marco.en-final #pista, #marco.en-final .esquina,
+  #marco.en-final #aviso-encargo { opacity: 0 !important; pointer-events: none !important; }
+  #final { z-index: 7; background: radial-gradient(ellipse at 50% 45%, rgba(255, 240, 246, 0) 35%, rgba(255, 170, 205, .45) 100%); }
+  .final-columna { position: absolute; right: 4.5cqw; top: 50%; width: 29cqw; transform: translateY(-45%);
+    display: flex; flex-direction: column; align-items: center; gap: 2cqw; }
+  .final-texto { padding: 1cqw 1.8cqw; border-radius: 2cqw; background: rgba(255, 255, 255, .94);
+    color: #e2588f; font-size: 1.85cqw; font-weight: 700; line-height: 1.3; text-align: center; box-shadow: 0 .5cqw 0 #f3c4d6; }
+  .final-texto:empty { visibility: hidden; }
+  .final-boton { width: 12cqw; height: 12cqw; border-radius: 50%; border: .5cqw solid #fff; background: #ff86b6; color: #fff;
+    font: inherit; font-size: 6cqw; font-weight: 700; line-height: 1; cursor: pointer; box-shadow: 0 .8cqw 0 #e2588f, 0 0 0 1.2cqw rgba(255, 134, 182, .25);
+    animation: pulso-nota 1.1s ease-in-out infinite; transition: transform .08s; }
+  @keyframes pulso-nota { 50% { transform: scale(1.08); } }
+  .final-boton:active { transform: translateY(.4cqw) scale(.96); }
+  .final-boton[hidden] { display: none; }
+  .final-destello { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+  #final.destello .final-destello { animation: destello-final 1.6s ease-out forwards; }
+  @keyframes destello-final { 0% { opacity: 0; } 15% { opacity: .95; } 100% { opacity: 0; } }
+  #deseo.final .panel-deseo { border-color: #ffc93b; box-shadow: 0 1cqw 0 #f5d77a; }
+  .deseo-guardado.final { background: #fff6d6; color: #f0a500; border-color: #ffc93b; }
+
+  /* Créditos con la foto, como una polaroid. */
+  #creditos .panel { width: 50cqw; max-height: 94cqh; overflow-y: auto; padding: 2cqw 3cqw 2.2cqw; }
+  #creditos h2 { margin-bottom: 1cqw; }
+  #creditos p { font-size: 1.65cqw; margin-bottom: .9cqw; }
+  #creditos .version { font-size: 1.3cqw; color: #c0708f; margin: 0; }
+  #creditos .dedicatoria { font-size: 1.9cqw; font-weight: 600; color: #d0628f; }
+  .foto-nosotros { width: 21cqw; margin: .4cqw auto 1.4cqw; padding: .8cqw .8cqw 2.2cqw; box-sizing: border-box; background: #fff;
+    border-radius: .6cqw; box-shadow: 0 .5cqw 1.4cqw rgba(120, 50, 80, .22), 0 0 0 .25cqw #fbd3e1; transform: rotate(-2.5deg);
+    position: relative; }
+  .foto-nosotros img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: .3cqw; }
+  .foto-nosotros::after { content: '♡'; position: absolute; left: 0; right: 0; bottom: .35cqw; text-align: center;
+    color: #ff86b6; font-size: 1.5cqw; line-height: 1; }
+  .foto-nosotros::before { content: ''; position: absolute; top: -.9cqw; left: 50%; width: 7cqw; height: 1.8cqw; margin-left: -3.5cqw;
+    background: rgba(255, 179, 205, .75); transform: rotate(3deg); border-radius: .2cqw; }
+
+  /* La fila de pruebas solo la ve Nico (?pruebas en la dirección, o 7 toques en el título de Opciones). */
+  #opciones .pruebas { display: none; }
+  #opciones.con-pruebas .pruebas { display: flex; }
+
+  /* Contador de corazones (la moneda), al final de la barra de necesidades. */
+  .contador { display: flex; align-items: center; gap: .5cqw; padding-left: 1.2cqw; border-left: .25cqw solid #fbd3e1;
+    font-size: 1.9cqw; font-weight: 700; color: #e2588f; min-width: 6cqw; }
+  .contador svg { width: 2.5cqw; height: 2.5cqw; fill: #ff6f9f; stroke: #3d2229; stroke-width: 1.6; }
+  .contador.suma svg { animation: bote .35s ease; }
+  .contador.resta { animation: tiembla .3s ease; }
+  @keyframes bote { 40% { transform: scale(1.35); } }
+  @keyframes tiembla { 25% { transform: translateX(-.3cqw); } 75% { transform: translateX(.3cqw); } }
+  .corazon-volador { position: absolute; z-index: 14; width: 3cqw; height: 3cqw; margin: -1.5cqw 0 0 -1.5cqw; pointer-events: none;
+    background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z' fill='%23ff6f9f' stroke='%233d2229' stroke-width='1.6'/%3E%3C/svg%3E");
+    transition: transform .62s cubic-bezier(.5, -0.35, .7, 1); }
+
+  /* ---------- Encargos del día, Notas Rosas y deseos ---------- */
+  .contador.notas { min-width: 4.6cqw; }
+  .contador.notas svg { fill: #ff86b6; }
+  #btn-encargos { position: absolute; left: 2.5%; top: 12.5%; bottom: auto; z-index: 3; display: flex; align-items: center; gap: .4em;
+    color: #e2588f; font-weight: 700; }
+  #btn-encargos svg { width: 1.3em; height: 1.3em; fill: #ff86b6; stroke: #3d2229; stroke-width: 1.5; }
+  #btn-encargos .insignia { position: absolute; top: -.6em; right: -.5em; min-width: 1.55em; height: 1.55em; padding: 0 .35em;
+    box-sizing: border-box; border-radius: 999px; background: #ff5c93; color: #fff; font-size: .78em; line-height: 1.55em;
+    text-align: center; box-shadow: 0 2px 0 #d9417a; }
+  #btn-encargos .insignia.listo { background: #7cc47a; box-shadow: 0 2px 0 #5aa158; }
+  #btn-encargos.llama { animation: llama .55s ease 4; }
+  @keyframes llama { 50% { transform: scale(1.12) rotate(-3deg); } }
+
+  .panel.panel-encargos { width: 64cqw; }
+  .lista-encargos { display: flex; flex-direction: column; gap: .9cqw; }
+  .encargo { display: grid; grid-template-columns: 4.6cqw 1fr auto; align-items: center; gap: 1.3cqw; padding: .9cqw 1.4cqw;
+    border-radius: 1.6cqw; background: #fff6fa; border: .25cqw solid #fbd3e1; }
+  .encargo-lugar { width: 4.6cqw; height: 4.6cqw; border-radius: 50%; background: #ff86b6; color: #fff;
+    display: flex; align-items: center; justify-content: center; }
+  .encargo-lugar svg { width: 2.8cqw; height: 2.8cqw; }
+  .encargo-texto b { display: block; font-size: 1.85cqw; color: #e2588f; }
+  .encargo-texto small { display: block; font-size: 1.4cqw; line-height: 1.3; color: #8a5a68; }
+  .encargo-estado { min-width: 4.5cqw; text-align: center; font-size: 1.8cqw; font-weight: 700; color: #c0708f; }
+  .encargo.hecho { background: #f1fbef; border-color: #cdebc6; }
+  .encargo.hecho .encargo-lugar { background: #7cc47a; }
+  .encargo.hecho b { color: #4f9a4d; }
+  .encargo.hecho .encargo-estado { color: #4f9a4d; font-size: 2.8cqw; }
+  .escala-notas { margin-top: 1.6cqw; }
+  .pentagrama { display: flex; justify-content: center; gap: 1cqw; }
+  .nota-escala { display: flex; flex-direction: column; align-items: center; color: #efc9d8; transition: color .3s; }
+  .nota-escala svg { width: 3.4cqw; height: 3.4cqw; fill: currentColor; stroke: currentColor; stroke-width: 1.2; }
+  .nota-escala small { font-size: 1.2cqw; font-weight: 700; }
+  .nota-escala.llena { color: #ff5c93; }
+  .panel .escala-texto { margin: .6cqw 0 0; font-size: 1.6cqw; font-weight: 600; }
+  .deseos-recibidos { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .6cqw;
+    margin-top: .8cqw; font-size: 1.5cqw; color: #8a5a68; }
+  .deseo-guardado { width: 3.6cqw; height: 3.6cqw; padding: 0; border-radius: 50%; border: .25cqw solid #f7b6cf;
+    background: #fff; color: #e2588f; font: inherit; font-size: 1.8cqw; cursor: pointer; }
+  .deseo-guardado.kuromi { background: #2b2530; color: #ff8fb5; border-color: #2b2530; }
+
+  /* El aviso va a la derecha, debajo de Opciones: así no tapa el globo de diálogo de ella. */
+  #aviso-encargo { position: absolute; right: 2.5%; top: 12.5%; z-index: 7; display: flex; flex-direction: column; align-items: flex-end;
+    padding: .8cqw 2.6cqw; background: #fff; border: .35cqw solid #ff86b6; border-radius: 2cqw; box-shadow: 0 .6cqw 0 #f3c4d6;
+    color: #6b4350; pointer-events: none; opacity: 0; transform: translateX(120%);
+    transition: transform .4s cubic-bezier(.3, 1.4, .5, 1), opacity .3s ease; }
+  #aviso-encargo.visible { opacity: 1; transform: none; }
+  #aviso-encargo strong { font-size: 2cqw; color: #e2588f; }
+  #aviso-encargo .aviso-titulo { font-size: 1.6cqw; }
+  #aviso-encargo .aviso-premio { font-size: 1.5cqw; font-weight: 700; color: #ff5c93; }
+  .nota-voladora { position: absolute; z-index: 14; width: 3.4cqw; height: 3.4cqw; margin: -1.7cqw 0 0 -1.7cqw; pointer-events: none;
+    color: #ff5c93; transition: transform .85s cubic-bezier(.5, -0.4, .7, 1); }
+  .nota-voladora svg { width: 100%; height: 100%; fill: currentColor; stroke: #3d2229; stroke-width: 1.2; }
+
+  .panel.panel-deseo { width: 56cqw; }
+  .deseo-cabeza { display: flex; justify-content: center; align-items: center; gap: 1cqw; margin-bottom: 1.4cqw;
+    font-size: 2.4cqw; font-weight: 700; color: #e2588f; }
+  .deseo-estrella { color: #ffc93b; animation: destello 1.2s ease-in-out infinite; }
+  @keyframes destello { 50% { transform: scale(1.3) rotate(20deg); } }
+  .deseo-hoja { max-height: 50cqh; overflow: auto; padding: 2cqw 2.6cqw; border-radius: 1.6cqw; text-align: left; }
+  .deseo-hoja h3 { margin: 0 0 1cqw; font-size: 2.3cqw; }
+  .panel .deseo-hoja p { margin: 0; font-size: 1.9cqw; line-height: 1.55; text-align: left; white-space: pre-line; }
+  .deseo-hoja.carta { background: #fffaf0; border: .3cqw dashed #f7b6cf; color: #6b4350; }
+  .deseo-hoja.carta h3 { color: #e2588f; }
+  .deseo-hoja.kuromi { background: #2b2530; border: .3cqw solid #ff8fb5; color: #f7eef3; }
+  .deseo-hoja.kuromi h3 { color: #ff8fb5; }
+
+  /* Botón de la tiendita en la bandeja del refri. */
+  .bandeja-acciones { display: flex; gap: .8cqw; align-items: center; }
+  .bandeja-tienda { height: 3.4cqw; padding: 0 1.4cqw; border: 0; border-radius: 999px; background: #ff86b6; color: #fff;
+    font: inherit; font-size: 1.5cqw; font-weight: 700; box-shadow: 0 .35cqw 0 #e2588f; cursor: pointer; }
+  .bandeja-tienda:active { transform: translateY(.25cqw); box-shadow: 0 .1cqw 0 #e2588f; }
+
+  /* La tiendita */
+  .panel.panel-tienda { width: 86cqw; max-height: 94cqh; display: flex; flex-direction: column; padding: 1.8cqw 2.4cqw 2cqw; }
+  .tienda-cabeza { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.4cqw; }
+  .tienda-cabeza h2 { margin: 0; }
+  .tienda-saldo { display: flex; align-items: center; gap: .6cqw; padding: .5cqw 1.4cqw; border-radius: 999px;
+    background: #fff0f6; border: .25cqw solid #fbd3e1; font-size: 2.2cqw; font-weight: 700; color: #e2588f; }
+  .tienda-saldo svg { width: 2.6cqw; height: 2.6cqw; fill: #ff6f9f; stroke: #3d2229; stroke-width: 1.6; }
+  .tienda-lista { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1cqw; overflow-y: auto; min-height: 0; padding: .2cqw; }
+  .producto { position: relative; display: grid; grid-template-columns: 6cqw 1fr; grid-template-rows: auto auto auto;
+    column-gap: 1cqw; align-items: center; padding: .9cqw 1cqw; border-radius: 1.6cqw; background: #fff6fa;
+    border: .25cqw solid #fbd3e1; }
+  .producto img { grid-row: 1 / 4; width: 6cqw; height: 6cqw; }
+  .producto .nombre { font-size: 1.5cqw; font-weight: 700; color: #8a5a68; line-height: 1.15; }
+  .producto .tiene { font-size: 1.25cqw; color: #b07a8c; }
+  .producto .comprar { justify-self: start; margin-top: .3cqw; padding: .55cqw 1.4cqw; font-size: 1.5cqw; }
+  .producto .comprar:disabled { background: #e7d3da; color: #a8939a; box-shadow: none; cursor: default; }
+  .producto .llego { position: absolute; right: 1cqw; top: .6cqw; font-size: 1.3cqw; font-weight: 700; color: #3fa66b;
+    opacity: 0; pointer-events: none; }
+  .producto .llego.visible { animation: aparece-sube 1.2s ease forwards; }
+  @keyframes aparece-sube { 0% { opacity: 0; transform: translateY(.6cqw); } 20% { opacity: 1; transform: none; }
+    80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-1.2cqw); } }
+  .producto.comprado { animation: bote .35s ease; }
+  .producto.resaltado { animation: brillo 1.2s ease 2; }
+  @keyframes brillo { 50% { box-shadow: 0 0 0 .5cqw #ffb3cd; } }
+
+  .panel .pruebas { flex-wrap: wrap; }
+  .panel .pruebas .boton-ui { font-size: 1.6cqw; padding: .8cqw 1.8cqw; }
+  .panel pre { margin: 0 0 1.4cqw; padding: 1.2cqw; max-height: 34cqh; overflow: auto; background: #fff6fa;
+    border-radius: 1.2cqw; font: 1.35cqw/1.45 Consolas, "Courier New", monospace; white-space: pre-wrap; text-align: left; }
+  #hud { position: absolute; right: 2%; top: 12%; background: rgba(255, 255, 255, .94); border-radius: 14px;
+    padding: 12px 14px; font: 13px/1.5 Consolas, "Courier New", monospace; color: #4a3338;
+    white-space: pre-wrap; display: none; max-width: 60%; z-index: 20; }
+  #hud button { margin-top: 8px; font: inherit; padding: 4px 10px; }
+  #aviso { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    text-align: center; padding: 10%; color: #9a5f73; font-size: 18px; z-index: 30; background: #ffeaf2; }
+
+  /* ---------- Capas de pantallas: aparecen y se van con un fundido, nunca de golpe ---------- */
+  .capa { position: absolute; inset: 0; z-index: 5; opacity: 0; visibility: hidden;
+    transition: opacity .5s ease, visibility 0s linear .5s; }
+  .capa.visible { opacity: 1; visibility: visible; transition: opacity .5s ease, visibility 0s; }
+
+  /* Arranque: fondo propio, como el aviso de las consolas antes del juego. */
+  #arranque { display: flex; align-items: center; justify-content: center; cursor: pointer;
+    background-color: #ffe6ef;
+    background-image: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .95) 0%, rgba(255, 255, 255, 0) 62%),
+      radial-gradient(#ffd3e2 18%, transparent 19%);
+    background-size: 100% 100%, 5cqw 5cqw; }
+  .aviso { position: absolute; width: 60cqw; padding: 3cqw 4cqw 2.6cqw; box-sizing: border-box;
+    background: #fff; border: .45cqw solid #f7b6cf; border-radius: 3cqw; box-shadow: 0 1cqw 0 #f3c4d6;
+    text-align: center; color: #6b4350;
+    opacity: 0; transform: translateY(1.5cqw) scale(.97); transition: opacity .45s ease, transform .45s ease; }
+  .aviso.entra { opacity: 1; transform: none; }
+  .aviso-icono { width: 6cqw; height: 6cqw; margin: 0 auto 1cqw; border-radius: 50%; background: #ff86b6;
+    color: #fff; font-size: 3.4cqw; line-height: 6cqw; box-shadow: 0 .45cqw 0 #e2588f; }
+  .aviso h2 { margin: 0 0 1.2cqw; font-size: 3.2cqw; font-weight: 700; color: #e2588f; }
+  .aviso p { margin: 0 0 2.4cqw; font-size: 2.3cqw; line-height: 1.45; font-weight: 500; }
+  .parpadeo { font-size: 1.9cqw; font-weight: 600; color: #c0708f; animation: parpadeo 1.6s ease-in-out infinite; }
+  @keyframes parpadeo { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+
+  /* Logotipo: blanco con borde rosa arriba, rosa con borde blanco y rosa oscuro abajo. */
+  .logotipo { line-height: .95; font-weight: 700; letter-spacing: .01em; }
+  .logotipo .l1, .logotipo .l2 { display: block; }
+  .logotipo .l1 { color: #fff; }
+  .logotipo .l2 { color: #ff86b6; }
+  #logo-grande { position: absolute; text-align: center; pointer-events: none; }
+  #logo-grande .l1 { font-size: 7.5cqw; }
+  #logo-grande .l2 { font-size: 14cqw; }
+  #logo-grande .letra { display: inline-block; opacity: 0; transform: translateY(-40%) scale(.5); }
+  #logo-grande.entra .letra { animation: cae .6s cubic-bezier(.3, 1.7, .5, 1) forwards;
+    animation-delay: calc(var(--i) * 70ms); }
+  #logo-grande.entra .l2 .letra { animation-delay: calc(300ms + var(--i) * 70ms); }
+  @keyframes cae { to { opacity: 1; transform: none; } }
+
+  /* Título: logo y ficha a la izquierda, My Melody a la derecha. */
+  #titulo { background: linear-gradient(90deg, rgba(255, 240, 246, .9) 0%, rgba(255, 240, 246, .6) 38%, rgba(255, 240, 246, 0) 58%); }
+  .columna { position: absolute; left: 5cqw; top: 0; bottom: 0; width: 42cqw;
+    display: flex; flex-direction: column; justify-content: center; gap: 2.6cqh; }
+  .columna .logotipo .l1 { font-size: 4.8cqw; }
+  .columna .logotipo .l2 { font-size: 9cqw; }
+
+  .ficha { background: #fff; border: .4cqw solid #f7b6cf; border-radius: 2.4cqw; box-shadow: 0 .8cqw 0 #f3c4d6;
+    padding: 1.8cqw 2.2cqw 1.4cqw; color: #6b4350; cursor: pointer;
+    display: grid; grid-template-columns: auto 1fr; column-gap: 1.8cqw; row-gap: .4cqw; align-items: center;
+    animation: latido 2.6s ease-in-out infinite; transition: transform .1s; }
+  .ficha:active { animation: none; transform: scale(.97); }
+  @keyframes latido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.015); } }
+  .ficha svg { width: 8.5cqw; height: 8.5cqw; grid-row: span 3; }
+  .ficha-nombre { font-size: 3cqw; font-weight: 700; color: #e2588f; }
+  .ficha-linea { font-size: 1.75cqw; font-weight: 500; }
+  .ficha-notas { grid-column: 1 / -1; display: flex; align-items: center; gap: 1.2cqw; margin-top: 1cqw;
+    font-size: 1.75cqw; font-weight: 600; }
+  .barra { flex: 1; height: 1.3cqw; border-radius: 1cqw; background: #fbdbe7; overflow: hidden; }
+  .barra i { display: block; height: 100%; width: 0; background: #ff86b6; border-radius: 1cqw; }
+  .ficha-entrar { grid-column: 1 / -1; text-align: center; margin-top: 1cqw; font-size: 1.7cqw; }
+
+  /* Kit de botones: se hunden al tocarlos. */
+  .botones { display: flex; gap: 1.4cqw; }
+  .boton-ui { font: inherit; font-size: 2cqw; font-weight: 600; color: #fff; background: #ff86b6; border: 0;
+    border-radius: 999px; padding: 1cqw 2.6cqw; box-shadow: 0 .55cqw 0 #e2588f; cursor: pointer;
+    transition: transform .08s, box-shadow .08s; }
+  .boton-ui:active { transform: translateY(.4cqw); box-shadow: 0 .15cqw 0 #e2588f; }
+  .boton-ui.secundario { background: #fff; color: #d0628f; border: .3cqw solid #f7b6cf; box-shadow: 0 .55cqw 0 #f3c4d6; }
+  .boton-ui.secundario:active { box-shadow: 0 .15cqw 0 #f3c4d6; }
+
+  /* Ventanas de Opciones y Créditos. */
+  .modal { z-index: 8; display: flex; align-items: center; justify-content: center; background: rgba(90, 40, 60, .3); }
+  .panel { width: 46cqw; box-sizing: border-box; padding: 2.6cqw 3cqw 2.8cqw; background: #fff; color: #6b4350;
+    border: .45cqw solid #f7b6cf; border-radius: 2.6cqw; box-shadow: 0 1cqw 0 #f3c4d6;
+    transform: scale(.94); transition: transform .3s cubic-bezier(.3, 1.5, .5, 1); }
+  .modal.visible .panel { transform: none; }
+  .panel h2 { margin: 0 0 1.8cqw; font-size: 3cqw; color: #e2588f; text-align: center; }
+  .panel p { margin: 0 0 1.2cqw; font-size: 1.8cqw; line-height: 1.45; text-align: center; }
+  .control { display: grid; grid-template-columns: 11cqw 1fr; align-items: center; margin-bottom: 1.8cqw;
+    font-size: 2cqw; font-weight: 600; }
+  .panel .botones { justify-content: center; margin-top: 2cqw; }
+
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 3.2cqw; margin: 0;
+    background: transparent; --lleno: 50%; }
+  input[type=range]::-webkit-slider-runnable-track { height: 1.2cqw; border-radius: 1cqw;
+    background: linear-gradient(90deg, #ff86b6 var(--lleno), #fbdbe7 var(--lleno)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 3.2cqw; height: 3.2cqw; margin-top: -1cqw;
+    border-radius: 50%; background: #fff; border: .45cqw solid #ff86b6; box-shadow: 0 .3cqw 0 #e9b7c8; }
+  input[type=range]::-moz-range-track { height: 1.2cqw; border-radius: 1cqw; background: #fbdbe7; }
+  input[type=range]::-moz-range-progress { height: 1.2cqw; border-radius: 1cqw; background: #ff86b6; }
+  input[type=range]::-moz-range-thumb { width: 2.6cqw; height: 2.6cqw; border-radius: 50%; background: #fff;
+    border: .45cqw solid #ff86b6; }
+
+  /* Globo de diálogo sobre My Melody. */
+  #globo { position: absolute; z-index: 6; transform: translate(-50%, -100%) scale(.8); opacity: 0;
+    padding: 1cqw 2cqw; background: #fff; color: #6b4350; border: .35cqw solid #f7b6cf; border-radius: 2cqw;
+    font-size: 2.2cqw; font-weight: 600; white-space: nowrap; pointer-events: none;
+    box-shadow: 0 .5cqw 0 #f3c4d6; transition: opacity .25s, transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+  #globo.visible { opacity: 1; transform: translate(-50%, -100%); }
+  #globo::after { content: ""; position: absolute; left: var(--cola, 50%); bottom: -1.3cqw; width: 2cqw; height: 2cqw;
+    background: #fff; border-right: .35cqw solid #f7b6cf; border-bottom: .35cqw solid #f7b6cf;
+    transform: translateX(-50%) rotate(45deg); }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three/three.module.js",
+  "three/addons/": "./vendor/three/addons/"
+} }
+</script>
+</head>
+<body>
+<div id="marco">
+  <canvas id="lienzo"></canvas>
+  <div id="vineta"></div>
+
+  <!-- Interfaz de la casa -->
+  <div id="logo" class="ui-casa">Nella Melody</div>
+  <div id="pista" class="ui-casa">Tócala: cariño · arrastra rápido: manotazo · mantén apretado: levantarla · toca el piso: que vaya</div>
+  <div class="esquina ui-casa">
+    <button class="boton" id="btn-opciones-casa" type="button">Opciones</button>
+    <button class="boton" id="btn-menu" type="button">Menú</button>
+  </div>
+  <button id="btn-diag" type="button" hidden>Diagnóstico</button>
+
+  <!-- Necesidades: comida, limpieza y ánimo -->
+  <div id="necesidades" class="ui-casa">
+    <div class="medidor" id="med-comida" title="Comida">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6.5 13h11l-1.6 7.5H8.1z"/><path d="M5 13a7 6.5 0 0 1 14 0z"/><circle cx="12" cy="4.4" r="1.3"/>
+      </svg><span class="barrita"><i></i></span>
+    </div>
+    <div class="medidor" id="med-limpieza" title="Limpieza">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3c3.5 4.4 6 7.6 6 10.7a6 6 0 0 1-12 0C6 10.6 8.5 7.4 12 3z"/><path d="M9.3 14.2a2.8 2.8 0 0 0 2.7 2.8"/>
+      </svg><span class="barrita"><i></i></span>
+    </div>
+    <div class="medidor" id="med-animo" title="Ánimo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/>
+      </svg><span class="barrita"><i></i></span>
+    </div>
+    <div class="contador" id="contador-corazones" title="Corazones">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/></svg><span>0</span>
+    </div>
+    <div class="contador notas" id="contador-notas" title="Notas Rosas">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17.5V5.5l10-2v11.5" fill="none" stroke-width="2.2"/><circle cx="6.5" cy="17.5" r="2.6"/><circle cx="16.5" cy="15" r="2.6"/></svg><span>0</span>
+    </div>
+  </div>
+
+  <!-- Encargos del día -->
+  <button class="boton ui-casa" id="btn-encargos" type="button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17.5V5.5l10-2v11.5" fill="none" stroke-width="2.2"/><circle cx="6.5" cy="17.5" r="2.6"/><circle cx="16.5" cy="15" r="2.6"/></svg>Encargos<span class="insignia">3</span>
+  </button>
+
+  <!-- Kit del baño (aparece con ella en la bañera) -->
+  <div id="kit-bano" class="ui-casa">
+    <div class="kit-lista">
+      <button class="herramienta" id="btn-jabon" type="button"><img alt=""><span>Jabón</span></button>
+      <button class="herramienta" id="btn-regadera" type="button">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <path d="M14 30c0-9 7-16 16-16h6" fill="none" stroke="#3d2229" stroke-width="4" stroke-linecap="round"/>
+          <path d="M34 20h14a4 4 0 0 1 4 4v8H30v-8a4 4 0 0 1 4-4z" fill="#ffb3cd" stroke="#3d2229" stroke-width="4" stroke-linejoin="round"/>
+          <path d="M28 32h26" stroke="#3d2229" stroke-width="4" stroke-linecap="round"/>
+          <path d="M33 40l-2 6M41 40v7M49 40l2 6M37 50l-1 5M45 50l1 5" stroke="#5fb4ea" stroke-width="3.4" stroke-linecap="round"/>
+        </svg><span>Regadera</span>
+      </button>
+      <button class="herramienta secundaria" id="btn-salir-banera" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>
+        </svg><span>Salir</span>
+      </button>
+    </div>
+    <div class="kit-pista">Frota el jabón sobre su cabecita y luego enjuágala</div>
+  </div>
+
+  <!-- Regadera del patio: se arrastra hasta las flores -->
+  <button class="herramienta ui-casa" id="btn-regar" type="button"><img alt=""><span>Regar</span></button>
+  <button class="herramienta ui-casa" id="btn-ramo" type="button">
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M32 58L22 30M32 58l0-30M32 58l10-28" stroke="#5aa158" stroke-width="3.5" stroke-linecap="round"/>
+      <circle cx="21" cy="24" r="8" fill="#ff86b6" stroke="#3d2229" stroke-width="3"/><circle cx="32" cy="18" r="8" fill="#fff" stroke="#3d2229" stroke-width="3"/>
+      <circle cx="43" cy="24" r="8" fill="#c9a7ff" stroke="#3d2229" stroke-width="3"/>
+      <circle cx="21" cy="24" r="2.6" fill="#ffd43b"/><circle cx="32" cy="18" r="2.6" fill="#ffd43b"/><circle cx="43" cy="24" r="2.6" fill="#ffd43b"/>
+      <path d="M24 44h16l-3 8H27z" fill="#ffb3cd" stroke="#3d2229" stroke-width="3" stroke-linejoin="round"/>
+    </svg><span>Ramo</span>
+  </button>
+
+  <!-- Barra de ambientes -->
+  <button class="flecha ui-casa" id="amb-anterior" type="button" aria-label="Ambiente anterior">‹</button>
+  <button class="flecha ui-casa" id="amb-siguiente" type="button" aria-label="Ambiente siguiente">›</button>
+  <div id="ambientes" class="ui-casa">
+    <button class="amb" data-cuarto="0" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 11V9a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v2"/><rect x="2.5" y="11" width="19" height="6.5" rx="2.2"/><path d="M5.5 17.5v2M18.5 17.5v2"/>
+      </svg><span>Sala</span>
+    </button>
+    <button class="amb" data-cuarto="1" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6.5 13h11l-1.6 7.5H8.1z"/><path d="M5 13a7 6.5 0 0 1 14 0z"/><path d="M12 4.6v2"/><circle cx="12" cy="3.6" r="1"/>
+      </svg><span>Cocina</span>
+    </button>
+    <button class="amb" data-cuarto="2" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 12h18v2.2a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5z"/><path d="M6 12V6.5a2 2 0 0 1 4 0"/><circle cx="14.5" cy="8" r="1.4"/><circle cx="18" cy="5.5" r="1"/><path d="M7 19.2l-1 1.8M17 19.2l1 1.8"/>
+      </svg><span>Baño</span>
+    </button>
+    <button class="amb" data-cuarto="3" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="6" r="2.4"/><circle cx="15.6" cy="9" r="2.4"/><circle cx="12" cy="12" r="2.4"/><circle cx="8.4" cy="9" r="2.4"/><path d="M12 14.4v7M12 18.5c-1.6-2-3.6-2.3-5-1.8M12 19.5c1.6-2 3.6-2.3 5-1.8"/>
+      </svg><span>Patio</span>
+    </button>
+  </div>
+  <div id="globo"></div>
+
+  <!-- Arranque: aviso y logo -->
+  <div id="arranque" class="capa visible">
+    <div id="tarjeta-aviso" class="aviso">
+      <div class="aviso-icono">♪</div>
+      <h2 id="aviso-titulo"></h2>
+      <p id="aviso-texto"></p>
+      <div class="parpadeo">Toca la pantalla para continuar</div>
+    </div>
+    <div id="logo-grande" class="logotipo"><span class="l1">Nella</span><span class="l2">Melody</span></div>
+  </div>
+
+  <!-- Título con la ficha -->
+  <div id="titulo" class="capa">
+    <div class="columna">
+      <div class="logotipo"><span class="l1">Nella</span><span class="l2">Melody</span></div>
+      <div id="ficha" class="ficha" role="button" aria-label="Entrar a la casa">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <circle cx="50" cy="50" r="47" fill="#ff9cc4" stroke="#fff" stroke-width="4"/>
+          <g fill="#fff" stroke="#3d2229" stroke-width="3">
+            <circle cx="50" cy="31" r="15"/><circle cx="69" cy="50" r="15"/>
+            <circle cx="50" cy="69" r="15"/><circle cx="31" cy="50" r="15"/>
+          </g>
+          <circle cx="50" cy="50" r="17" fill="#fff"/>
+          <circle cx="50" cy="50" r="10" fill="#ffd43b" stroke="#3d2229" stroke-width="3"/>
+        </svg>
+        <div id="ficha-nombre" class="ficha-nombre"></div>
+        <div id="ficha-dias" class="ficha-linea"></div>
+        <div id="ficha-ultima" class="ficha-linea"></div>
+        <div class="ficha-notas"><span>♪ Notas Rosas</span><span class="barra"><i id="ficha-barra"></i></span><span id="ficha-notas"></span></div>
+        <div class="ficha-entrar parpadeo">Toca tu ficha para entrar</div>
+      </div>
+      <div class="botones"><button class="boton-ui secundario" id="btn-opciones" type="button">Opciones</button></div>
+    </div>
+  </div>
+
+  <!-- Opciones -->
+  <div id="opciones" class="capa modal">
+    <div class="panel">
+      <h2>Opciones</h2>
+      <label class="control"><span>Música</span><input type="range" id="vol-musica" min="0" max="100"></label>
+      <label class="control"><span>Efectos</span><input type="range" id="vol-efectos" min="0" max="100"></label>
+      <div class="botones">
+        <button class="boton-ui secundario" id="btn-creditos" type="button">Créditos</button>
+        <button class="boton-ui secundario" id="btn-diag-opciones" type="button">Diagnóstico</button>
+      </div>
+      <div class="botones pruebas">
+        <button class="boton-ui secundario" id="btn-olvido" type="button">Pasar un día</button>
+        <button class="boton-ui secundario" id="btn-completa" type="button">Pantalla completa</button>
+        <button class="boton-ui secundario" id="btn-llenar" type="button">Llenar el refri</button>
+        <button class="boton-ui secundario" id="btn-hambre" type="button">Darle hambre (4 h)</button>
+        <button class="boton-ui secundario" id="btn-mono" type="button">Prueba del mono loco</button>
+        <button class="boton-ui secundario" id="btn-final" type="button">Ver el final (100 Notas)</button>
+      </div>
+      <div class="botones"><button class="boton-ui" id="btn-listo" type="button">Listo</button></div>
+    </div>
+  </div>
+
+  <!-- Créditos -->
+  <div id="creditos" class="capa modal">
+    <div class="panel">
+      <h2>Nella Melody</h2>
+      <p id="creditos-dedicatoria" class="dedicatoria"></p>
+      <figure class="foto-nosotros"><img src="img/nosotros.jpg" alt="Nico y Antonella" draggable="false"></figure>
+      <p>My Melody, Kuromi y sus amigos son personajes de Sanrio. Este juego es un regalo personal, sin fines comerciales.</p>
+      <p>Música: «Estrellita, ¿dónde estás?», canción popular de dominio público, en cajita musical.</p>
+      <p class="version" id="creditos-version"></p>
+      <div class="botones"><button class="boton-ui" id="btn-cerrar-creditos" type="button">Volver</button></div>
+    </div>
+  </div>
+
+  <!-- Resultado de la prueba del mono loco -->
+  <div id="resultado" class="capa modal">
+    <div class="panel">
+      <h2>Prueba del mono loco</h2>
+      <pre id="resultado-texto"></pre>
+      <div class="botones"><button class="boton-ui" id="btn-cerrar-resultado" type="button">Cerrar</button></div>
+    </div>
+  </div>
+
+  <div id="hud"><span id="hud-texto"></span>
+<button id="btn-copiar" type="button">Copiar diagnóstico</button></div>
+  <div id="aviso">No se pudo cargar la biblioteca 3D. Esta prueba necesita internet la primera vez.</div>
+</div>
+<script>
+  window.addEventListener('error', function (e) {
+    if (e.target && e.target.tagName === 'SCRIPT') document.getElementById('aviso').style.display = 'flex';
+  }, true);
+</script>
+<!-- El número evita que el navegador use una copia vieja. Súbelo al cambiar los archivos. -->
+<script type="module" src="escena3d.js?v=49"></script>
+<script src="titulo.js?v=7" defer></script>
+<script src="pruebas.js?v=15" defer></script>
+</body>
+</html>

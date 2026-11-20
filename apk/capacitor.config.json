@@ -1,0 +1,11 @@
+{
+  "appId": "com.nellamelody.app",
+  "appName": "Nella Melody",
+  "webDir": "www",
+  "backgroundColor": "#f3c4d6",
+  "android": {
+    "backgroundColor": "#f3c4d6",
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  }
+}

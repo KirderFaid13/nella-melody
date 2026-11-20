@@ -1,0 +1,30 @@
+# Dependencias y cachés
+node_modules/
+.npm-cache/
+__pycache__/
+
+# Copia del juego que genera preparar_www.py
+apk/www/
+
+# Compilaciones y APK (el APK se publica en GitHub Releases)
+*.apk
+*.aab
+apk/android/app/build/
+apk/android/build/
+apk/android/.gradle/
+apk/android/local.properties
+apk/android/app/src/main/assets/public/
+apk/android/app/src/main/assets/capacitor.config.json
+apk/android/app/src/main/assets/capacitor.plugins.json
+
+# Clave de firma: nunca al repo
+apk/firma/
+*.keystore
+*.jks
+
+# Capturas de pruebas locales
+apk/pruebas-android/
+
+# Sistema
+.DS_Store
+Thumbs.db

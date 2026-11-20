@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nella Melody · Hoja de modelo</title>
+<style>
+  body { margin: 0; padding: 24px; font-family: "Segoe UI", system-ui, sans-serif; background: #fff7fa; color: #4a3338; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 28px 0 10px; }
+  p, li { font-size: 14px; line-height: 1.5; max-width: 70ch; }
+  .fila { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+  figure { margin: 0; text-align: center; background: #fff; border: 2px solid #f6d5e0; border-radius: 16px; padding: 10px; }
+  figcaption { font-size: 13px; margin-top: 4px; }
+  .muestra { display: inline-flex; align-items: center; gap: 8px; margin: 0 16px 8px 0; font-size: 13px; }
+  .muestra i { width: 28px; height: 28px; border-radius: 8px; border: 2px solid #5c3d42; display: inline-block; }
+  code { background: #fbe3ec; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>Nella Melody · Hoja de modelo v0.1</h1>
+<p>Dibujo generado por <code>melody.js</code>. Si algo se corrige, se corrige ahí y cambia en todas partes.</p>
+
+<h2>Figura completa</h2>
+<div class="fila" id="figura"></div>
+
+<h2>Expresiones</h2>
+<div class="fila" id="expresiones"></div>
+
+<h2>Piezas y pivotes</h2>
+<div class="fila" id="piezas"></div>
+
+<h2>Paleta</h2>
+<div id="paleta"></div>
+
+<h2>Reglas de estilo</h2>
+<ul>
+  <li>Contorno de un solo color, grosor 9 en la caja de 600 x 900. Rasgos finos (nariz, boca, flor) con grosor 6.</li>
+  <li>Rellenos planos, sin degradados ni sombras dentro del personaje.</li>
+  <li>Solo elipses, círculos y curvas simples. Nada de filtros, texto ni máscaras.</li>
+  <li>La cabeza ocupa cerca de dos tercios del alto sin contar las orejas.</li>
+</ul>
+
+<h2>Dudas para quien aprueba</h2>
+<ol>
+  <li>¿La flor va en ese lado, o debería ser un lazo?</li>
+  <li>¿Las dos orejas paradas, o una doblada?</li>
+  <li>¿El tono de rosa de la capucha es el correcto?</li>
+  <li>¿Los ojos están a la distancia y altura correctas respecto de la nariz?</li>
+  <li>¿El cuerpo debería verse más chico o más grande respecto de la cabeza?</li>
+</ol>
+
+<script src="melody.js"></script>
+<script>
+(function () {
+  var NM = window.NellaMelody;
+  var NS = 'http://www.w3.org/2000/svg';
+
+  function lienzo(ancho, alto, caja, contenido) {
+    return '<svg xmlns="' + NS + '" width="' + ancho + '" height="' + alto +
+      '" viewBox="' + caja + '">' + contenido + '</svg>';
+  }
+
+  function figura(destino, html, pie) {
+    var f = document.createElement('figure');
+    f.innerHTML = html + '<figcaption>' + pie + '</figcaption>';
+    document.getElementById(destino).appendChild(f);
+    return f;
+  }
+
+  figura('figura', lienzo(320, 480, '0 0 600 900', NM.construir()), 'Frente, expresión neutral');
+
+  var nombres = { neutral: 'Neutral', feliz: 'Feliz', sorpresa: 'Sorpresa', sueno: 'Sueño' };
+  NM.EXPRESIONES.forEach(function (e) {
+    figura('expresiones', lienzo(200, 250, '60 30 480 600', NM.construir({ expresion: e })), nombres[e]);
+  });
+  var parpadeo = figura('expresiones', lienzo(200, 250, '60 30 480 600', NM.construir()), 'Parpadeo');
+  Array.prototype.forEach.call(parpadeo.querySelectorAll('[data-pieza^="ojo"]'), function (ojo) {
+    ojo.setAttribute('transform', 'scale(1 0.12)');
+  });
+
+  var marcas = '';
+  var ocupadas = { izq: [], der: [] };
+  Object.keys(NM.PIVOTES).forEach(function (nombre, i) {
+    var p = NM.PIVOTES[nombre];
+    var izquierda = p[0] < 300 || (p[0] === 300 && i % 2 === 0);
+    var tx = izquierda ? -20 : 620;
+    /* Si dos etiquetas caen a la misma altura, la segunda baja un renglón. */
+    var lado = ocupadas[izquierda ? 'izq' : 'der'];
+    var ty = p[1];
+    while (lado.some(function (y) { return Math.abs(y - ty) < 26; })) ty += 26;
+    lado.push(ty);
+    marcas += '<path d="M' + p[0] + ',' + p[1] + ' L' + tx + ',' + ty + '" stroke="#2f7de1" stroke-width="2" stroke-dasharray="6 6" fill="none"/>' +
+      '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="9" fill="#2f7de1" stroke="#fff" stroke-width="3"/>' +
+      '<text x="' + (izquierda ? tx - 8 : tx + 8) + '" y="' + (ty + 7) + '" font-size="22" fill="#1d4f91" font-family="Segoe UI, sans-serif" text-anchor="' + (izquierda ? 'end' : 'start') + '">' + nombre + '</text>';
+  });
+  figura('piezas', lienzo(560, 540, '-220 0 1040 900', '<g opacity=".55">' + NM.construir() + '</g>' + marcas),
+    'Cada punto azul es el centro de giro de una pieza');
+
+  var paleta = document.getElementById('paleta');
+  Object.keys(NM.ESTILO).forEach(function (clave) {
+    var v = NM.ESTILO[clave];
+    if (typeof v !== 'string') return;
+    var m = document.createElement('span');
+    m.className = 'muestra';
+    m.innerHTML = '<i style="background:' + v + '"></i>' + clave + ' ' + v;
+    paleta.appendChild(m);
+  });
+})();
+</script>
+</body>
+</html>
